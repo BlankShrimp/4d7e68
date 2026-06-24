@@ -1,0 +1,32 @@
+{
+	"name": "4d7e68-v01",
+	"displayName": "4d7e68 v01",
+	"description": "A clean light color theme for Visual Studio Code.",
+	"version": "0.0.1",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/BlankShrimp/4d7e68.git"
+	},
+	"contributors": [
+		{
+			"name": "BlankShrimp",
+			"email": "vanishing.19@gmail.com"
+		}
+	],
+	"engines": {
+		"vscode": "^1.84.0"
+	},
+	"categories": [
+		"Themes"
+	],
+	"contributes": {
+		"themes": [
+			{
+				"label": "4d7e68-v01",
+				"uiTheme": "vs",
+				"path": "./themes/4d7e68-v01-color-theme.json"
+			}
+		]
+	}
+}
