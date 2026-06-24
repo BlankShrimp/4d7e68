@@ -3,6 +3,7 @@
 	"displayName": "4d7e68 v01",
 	"description": "A clean light color theme for Visual Studio Code.",
 	"version": "0.0.1",
+	"publisher": "BlankShrimp",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
