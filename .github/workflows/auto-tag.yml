@@ -1,0 +1,62 @@
+name: Auto Tag Release
+
+on:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  auto-tag:
+    name: Create release tag
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.head_commit.message, '[milestone] Release v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create tag from release commit
+        shell: bash
+        env:
+          GH_RELEASE_PAT: ${{ secrets.GH_RELEASE_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_RELEASE_PAT:-}" ]]; then
+            echo "Missing GitHub secret GH_RELEASE_PAT" >&2
+            exit 1
+          fi
+
+          git fetch --tags origin
+
+          subject="$(git log -1 --pretty=%s)"
+          if [[ ! "$subject" =~ ^\[milestone\]\ Release\ (v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?)$ ]]; then
+            echo "Commit subject does not match release format: $subject" >&2
+            exit 1
+          fi
+
+          tag="${BASH_REMATCH[1]}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "v${package_version}" != "$tag" ]]; then
+            echo "package.json version ${package_version} does not match ${tag}" >&2
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            existing_commit="$(git rev-list -n 1 "${tag}")"
+            if [[ "$existing_commit" == "$GITHUB_SHA" ]]; then
+              echo "Tag ${tag} already exists on this commit."
+              exit 0
+            fi
+            echo "Tag ${tag} already exists on ${existing_commit}" >&2
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag" "$GITHUB_SHA"
+          git push "https://x-access-token:${GH_RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git" "refs/tags/${tag}"

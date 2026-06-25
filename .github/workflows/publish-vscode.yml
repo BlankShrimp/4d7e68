@@ -1,0 +1,75 @@
+name: Publish VS Code Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to Marketplace
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch --no-tags origin master:refs/remotes/origin/master
+
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $tag" >&2
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/master; then
+            echo "Tag ${tag} does not point at a commit on origin/master" >&2
+            exit 1
+          fi
+
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "v${package_version}" != "$tag" ]]; then
+            echo "package.json version ${package_version} does not match ${tag}" >&2
+            exit 1
+          fi
+
+          echo "package_name=${package_name}" >> "$GITHUB_OUTPUT"
+          echo "package_version=${package_version}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Package extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx -y @vscode/vsce package
+
+      - name: Publish extension
+        shell: bash
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${VSCE_PAT:-}" ]]; then
+            echo "Missing GitHub secret VSCE_PAT" >&2
+            exit 1
+          fi
+
+          vsix="${{ steps.release.outputs.package_name }}-${{ steps.release.outputs.package_version }}.vsix"
+          npx -y @vscode/vsce publish --packagePath "$vsix"
